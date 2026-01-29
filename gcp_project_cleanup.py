@@ -5,11 +5,10 @@
 """
 GCP Project Cleanup Report
 
-Usage: ORG_ID=123456789 uv run gcp_project_cleanup.py
-       ORG_ID=123456789 SHOW_INACTIVE=true uv run gcp_project_cleanup.py
+Usage: uv run gcp_project_cleanup.py ORG_ID [--show-inactive]
 """
 
-import os
+import argparse
 
 from google.cloud import asset_v1
 from google.cloud.recommender_v1 import RecommenderClient
@@ -112,12 +111,18 @@ def print_report(projects, show_inactive):
 
 
 def main():
-    org_id = os.environ["ORG_ID"]
-    show_inactive = os.getenv("SHOW_INACTIVE", "false").lower() in ("true", "1", "yes")
+    parser = argparse.ArgumentParser(description="GCP Project Cleanup Report")
+    parser.add_argument("org_id", metavar="ORG_ID", help="GCP organization ID")
+    parser.add_argument(
+        "--show-inactive",
+        action="store_true",
+        help="show inactive column (default: hidden)",
+    )
+    args = parser.parse_args()
 
-    projects = fetch_projects(org_id)
-    owners = fetch_project_owners(org_id)
-    inactive = fetch_inactive_project_numbers(org_id)
+    projects = fetch_projects(args.org_id)
+    owners = fetch_project_owners(args.org_id)
+    inactive = fetch_inactive_project_numbers(args.org_id)
 
     for p in projects:
         p["owners"] = owners.get(p["project_id"], [])
@@ -125,7 +130,7 @@ def main():
 
     projects.sort(key=lambda p: (not p["inactive"], p["create_date"]))
 
-    print_report(projects, show_inactive)
+    print_report(projects, args.show_inactive)
 
 
 if __name__ == "__main__":
