@@ -5,16 +5,17 @@
 """
 GCP Project Cleanup Report
 
-Usage: uv run gcp_project_cleanup.py ORG_ID [--show-inactive]
+Usage: uv run gcp_project_cleanup.py ORG_ID [--show-inactive] [--include-apps-script]
 """
 
 import argparse
+import re
 
 from google.cloud import asset_v1
 from google.cloud.recommender_v1 import RecommenderClient
 
 
-def fetch_projects(org_id):
+def fetch_projects(org_id, include_apps_script=False):
     client = asset_v1.AssetServiceClient()
     response = client.search_all_resources(
         scope=f"organizations/{org_id}",
@@ -25,6 +26,9 @@ def fetch_projects(org_id):
     for r in response:
         _, project_id = r.name.rsplit("/projects/", 1)
         _, project_number = r.project.rsplit("/", 1)
+
+        if not include_apps_script and re.match(r"^sys-\d{26}$", project_id):
+            continue
 
         projects.append(
             {
@@ -118,9 +122,14 @@ def main():
         action="store_true",
         help="show inactive column (default: hidden)",
     )
+    parser.add_argument(
+        "--include-apps-script",
+        action="store_true",
+        help="include Apps Script projects (default: filtered out)",
+    )
     args = parser.parse_args()
 
-    projects = fetch_projects(args.org_id)
+    projects = fetch_projects(args.org_id, args.include_apps_script)
     owners = fetch_project_owners(args.org_id)
     inactive = fetch_inactive_project_numbers(args.org_id)
 
